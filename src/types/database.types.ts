@@ -101,6 +101,7 @@ export interface DiaryWithRelations extends Diary {
   staff?: Staff;
   tags?: Tag[];
   user_statuses?: UserDiaryStatusWithStaff[];
+  replies?: DiaryWithRelations[];
 }
 
 // ==========================================
@@ -175,6 +176,7 @@ export interface CreateDiaryInput {
   is_urgent?: boolean;
   bounty_points?: number | null;
   tag_ids?: number[];
+  parent_id?: number;
 }
 
 export interface UpdateStatusInput {

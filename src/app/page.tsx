@@ -7,7 +7,7 @@ import { toISODateString, getToday } from '@/lib/utils';
 import { DiaryListClient } from '@/components/diary/DiaryListClient';
 
 interface PageProps {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; filter?: 'urgent' | 'todo' }>;
 }
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -16,13 +16,14 @@ export default async function HomePage({ searchParams }: PageProps) {
   // 日付パラメータがない場合は今日の日付を使用
   const dateString = params.date || toISODateString(getToday());
   const currentDate = new Date(dateString + 'T00:00:00');
+  const filter = params.filter;
 
   // データ取得
-  console.log('Fetching data for date:', dateString);
+  console.log('Fetching data for date:', dateString, 'filter:', filter);
   
   try {
     const [diaries, currentStaff] = await Promise.all([
-      getDiariesByDate(dateString),
+      getDiariesByDate(dateString, filter),
       getCurrentStaff(),
     ]);
     

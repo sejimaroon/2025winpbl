@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import Link from 'next/link';
 import { ClipboardList, Mail, Lock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -96,6 +97,14 @@ export default function LoginPage() {
 
           <CardFooter className="flex-col space-y-4">
             <SubmitButton />
+            <div className="w-full border-t border-slate-200 pt-4">
+              <Link 
+                href="/register" 
+                className="inline-flex w-full items-center justify-center whitespace-nowrap rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              >
+                新規登録する
+              </Link>
+            </div>
             <p className="text-xs text-center text-slate-500">
               ログイン情報がわからない場合は管理者にお問い合わせください
             </p>

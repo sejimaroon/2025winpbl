@@ -1,12 +1,15 @@
 'use client';
 
-import { AlertTriangle, CheckCircle, Clock, MessageSquare, CheckCheck } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { AlertTriangle, CheckCircle, Clock, MessageSquare, CheckCheck, Send, X } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Textarea } from '@/components/ui/Textarea';
 import { CategoryBadge } from './CategoryBadge';
 import { UserInitial } from './UserInitial';
 import { cn, formatTime } from '@/lib/utils';
-import type { DiaryWithRelations, UserStatus, USER_STATUS } from '@/types/database.types';
+import type { DiaryWithRelations, UserStatus } from '@/types/database.types';
+import { createDiary } from '@/app/actions/diary';
 
 interface DiaryCardProps {
   diary: DiaryWithRelations;
@@ -15,10 +18,41 @@ interface DiaryCardProps {
 }
 
 export function DiaryCard({ diary, currentUserId, onStatusChange }: DiaryCardProps) {
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
   const handleStatusChange = (status: UserStatus) => {
     if (onStatusChange) {
       onStatusChange(diary.diary_id, status);
     }
+  };
+
+  const handleReplySubmit = async (formData: FormData) => {
+    if (!currentUserId) {
+      alert('ログインが必要です');
+      return;
+    }
+
+    const content = formData.get('content') as string;
+    if (!content.trim()) return;
+
+    startTransition(async () => {
+      const result = await createDiary({
+        category_id: diary.category_id,
+        staff_id: currentUserId,
+        title: `Re: ${diary.title}`, // タイトルは自動生成
+        content: content,
+        target_date: diary.target_date, // 親記事と同じ日付
+        is_urgent: false,
+        parent_id: diary.diary_id,
+      });
+
+      if (result.success) {
+        setShowReplyForm(false);
+      } else {
+        alert('返信の投稿に失敗しました');
+      }
+    });
   };
 
   // ユーザーステータスをグループ化
@@ -62,10 +96,69 @@ export function DiaryCard({ diary, currentUserId, onStatusChange }: DiaryCardPro
         </div>
       </CardHeader>
 
-      <CardContent className="py-3">
-        <p className="text-sm text-slate-600 whitespace-pre-wrap line-clamp-3">
+      <CardContent className="py-3 space-y-4">
+        <p className="text-sm text-slate-600 whitespace-pre-wrap">
           {diary.content}
         </p>
+
+        {/* 返信一覧 */}
+        {diary.replies && diary.replies.length > 0 && (
+          <div className="mt-4 space-y-2 pl-4 border-l-2 border-slate-100">
+            {diary.replies.map((reply) => (
+              <div key={reply.diary_id} className="bg-slate-50 p-3 rounded-lg text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <UserInitial 
+                    name={reply.staff?.name || '?'} 
+                    status={reply.current_status} 
+                    className="h-5 w-5 text-[10px]" 
+                  />
+                  <span className="font-medium text-slate-700">{reply.staff?.name}</span>
+                  <span className="text-xs text-slate-400">{formatTime(reply.created_at)}</span>
+                </div>
+                <p className="text-slate-600 whitespace-pre-wrap pl-7">{reply.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 返信フォーム */}
+        {showReplyForm && (
+          <form action={handleReplySubmit} className="mt-4 pl-4 border-l-2 border-slate-100">
+            <div className="space-y-2">
+              <Textarea
+                name="content"
+                placeholder="返信内容を入力..."
+                className="min-h-[80px] text-sm"
+                autoFocus
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReplyForm(false)}
+                  disabled={isPending}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isPending}
+                  className="bg-primary-500 hover:bg-primary-600"
+                >
+                  {isPending ? '送信中...' : (
+                    <>
+                      <Send className="h-3 w-3 mr-1" />
+                      送信
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </form>
+        )}
       </CardContent>
 
       {/* アクションボタン */}
@@ -90,13 +183,13 @@ export function DiaryCard({ diary, currentUserId, onStatusChange }: DiaryCardPro
             作業中
           </Button>
           <Button
-            variant="outline"
+            variant={showReplyForm ? "secondary" : "outline"}
             size="sm"
             className="flex-1 min-w-[70px] text-slate-600 border-slate-200 hover:bg-slate-50"
-            onClick={() => {}}
+            onClick={() => setShowReplyForm(!showReplyForm)}
           >
-            <MessageSquare className="h-4 w-4 mr-1" />
-            返信
+            {showReplyForm ? <X className="h-4 w-4 mr-1" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+            {showReplyForm ? '閉じる' : '返信'}
           </Button>
           <Button
             variant="outline"
@@ -129,4 +222,3 @@ export function DiaryCard({ diary, currentUserId, onStatusChange }: DiaryCardPro
     </Card>
   );
 }
-

@@ -22,10 +22,13 @@ const POINTS = {
 /**
  * 指定日の日報一覧を取得
  */
-export async function getDiariesByDate(targetDate: string): Promise<DiaryWithRelations[]> {
+export async function getDiariesByDate(
+  targetDate: string,
+  filter?: 'urgent' | 'todo' | null
+): Promise<DiaryWithRelations[]> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('DIARY')
     .select(`
       *,
@@ -34,19 +37,47 @@ export async function getDiariesByDate(targetDate: string): Promise<DiaryWithRel
       user_statuses:USER_DIARY_STATUS(
         *,
         staff:STAFF(*)
+      ),
+      replies:DIARY!parent_id(
+        *,
+        staff:STAFF(*),
+        user_statuses:USER_DIARY_STATUS(*, staff:STAFF(*))
       )
     `)
     .eq('target_date', targetDate)
     .eq('is_deleted', false)
     .eq('is_hidden', false)
-    .order('created_at', { ascending: false });
+    .is('parent_id', null);
+
+  // 至急フィルター
+  if (filter === 'urgent') {
+    query = query.eq('is_urgent', true);
+  }
+
+  // TODOフィルター（未解決のもの）
+  // 簡易実装として、記事自体のステータスが解決済みでないものを表示
+  if (filter === 'todo') {
+    query = query.neq('current_status', 'SOLVED');
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching diaries:', error);
     return [];
   }
 
-  return data as DiaryWithRelations[];
+  // 返信を日付順にソート
+  const diaries = data as DiaryWithRelations[];
+  diaries.forEach(diary => {
+    if (diary.replies) {
+      diary.replies.sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    }
+  });
+
+  return diaries;
 }
 
 /**
@@ -87,6 +118,7 @@ export async function createDiary(input: CreateDiaryInput & { staff_id: number }
       is_urgent: input.is_urgent || false,
       bounty_points: input.bounty_points || null,
       current_status: 'UNREAD',
+      parent_id: input.parent_id || null,
     })
     .select()
     .single();
@@ -107,7 +139,9 @@ export async function createDiary(input: CreateDiaryInput & { staff_id: number }
   }
 
   // 投稿ポイントを付与
-  await addPoints(input.staff_id, POINTS.POST_DIARY, '日報投稿', diary.diary_id);
+  const pointType = input.parent_id ? POINTS.REPLY : POINTS.POST_DIARY;
+  const reason = input.parent_id ? '返信投稿' : '日報投稿';
+  await addPoints(input.staff_id, pointType, reason, diary.diary_id);
 
   revalidatePath('/');
   return { success: true, data: diary };

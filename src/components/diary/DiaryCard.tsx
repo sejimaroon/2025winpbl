@@ -257,24 +257,30 @@ export function DiaryCard({
     )}>
       <CardHeader
         className={cn(
-          "pb-2 border-b-2 rounded-t-lg cursor-pointer hover:opacity-90 transition-all",
+          "border-b-2 rounded-t-lg transition-all select-none",
           getCategoryHeaderColor(diary.category?.category_name)
         )}
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsCollapsed(!isCollapsed);
-        }}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between w-full">
+
+          {/* 左：タイトルクリックで詳細・編集モーダル */}
+          <div
+            className="flex-1 min-w-0 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick?.(); // 詳細+編集モーダル
+            }}
+          >
             {/* タイトル行 */}
             <div className="flex items-center gap-2 flex-wrap">
               {diary.is_urgent && diary.current_status !== 'SOLVED' && (
                 <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
               )}
+
               <h3 className="font-semibold text-slate-800 truncate">
                 {diary.title}
               </h3>
+
               {diary.deadline && diary.current_status !== 'SOLVED' && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                   期限: {formatDate(diary.deadline)}
@@ -282,46 +288,48 @@ export function DiaryCard({
               )}
             </div>
 
-            {/* メタ情報 */}
+            {/* meta info */}
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <CategoryBadge categoryName={diary.category?.category_name || ''} />
-              <span className="text-xs text-slate-500">
-                {diary.staff?.name || '不明'}
-              </span>
-              <span className="text-xs text-slate-400">
-                {formatTime(diary.created_at)}
-              </span>
+              <span className="text-xs text-slate-500">{diary.staff?.name || '不明'}</span>
+              <span className="text-xs text-slate-400">{formatTime(diary.created_at)}</span>
               {isEdited && (
-                <span className="text-xs text-slate-400 italic">
-                  編集済み
-                </span>
+                <span className="text-xs text-slate-400 italic">編集済み</span>
               )}
             </div>
-
-            {/* 解決者表示 */}
-            {diary.current_status === 'SOLVED' && diary.solved_by_staff && (
-              <div className="mt-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded inline-block">
-                解決者: {diary.solved_by_staff.name}
-                {diary.solved_at && ` (${formatDate(diary.solved_at)} ${formatTime(diary.solved_at)})`}
-              </div>
-            )}
           </div>
 
-          {/* 展開/折りたたみアイコン */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsCollapsed(!isCollapsed);
-            }}
-            className="flex-shrink-0 p-1 hover:bg-slate-200/50 rounded transition-all duration-200"
-            title={isCollapsed ? '展開する' : '折りたたむ'}
-          >
-            {isCollapsed ? (
-              <ChevronDown className="h-5 w-5 text-slate-400 transition-transform duration-300" />
-            ) : (
-              <ChevronUp className="h-5 w-5 text-slate-400 transition-transform duration-300" />
-            )}
-          </button>
+          {/* 右：編集 + 開閉 */}
+          <div className="flex items-center gap-1 pl-2">
+
+            {/* 編集ボタン（同じモーダルを開く） */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.(); // 詳細/編集モーダル
+              }}
+              className="p-2 rounded hover:bg-slate-200 transition-colors"
+              title="編集"
+            >
+              <Edit2 className="h-4 w-4 text-slate-600" />
+            </button>
+
+            {/* 開閉ボタン */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCollapsed(!isCollapsed);
+              }}
+              className="p-2 rounded hover:bg-slate-200 transition-colors"
+              title={isCollapsed ? '展開する' : '折りたたむ'}
+            >
+              {isCollapsed ? (
+                <ChevronDown className="h-5 w-5 text-slate-600" />
+              ) : (
+                <ChevronUp className="h-5 w-5 text-slate-600" />
+              )}
+            </button>
+          </div>
         </div>
       </CardHeader>
 

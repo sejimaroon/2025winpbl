@@ -228,7 +228,10 @@ export function DiaryCard({
 
   // ステータスごとにユーザーをグループ化
   const workingUsers = diary.user_statuses?.filter(us => us.status === 'WORKING') || [];
-  const confirmedUsers = diary.user_statuses?.filter(us => us.status === 'CONFIRMED') || [];
+  // const confirmedUsers = diary.user_statuses?.filter(us => us.status === 'CONFIRMED') || [];
+  const confirmedUsers = diary.user_statuses?.filter(us => 
+    us.status === 'CONFIRMED' || us.status === 'WORKING' || us.status === 'SOLVED'
+  ) || [];
   const solvedUsers = diary.user_statuses?.filter(us => us.status === 'SOLVED') || [];
   
   // 確認済み・作業中・解決済みのスタッフID
@@ -494,12 +497,18 @@ export function DiaryCard({
       <CardFooter className="flex-col items-stretch gap-3">
         {/* 1行目: 確認した、作業中、解決済み */}
         <div className="flex flex-wrap gap-2">
+          {/* 旧: className={cn(
+            "flex-1 min-w-[70px] text-green-600 border-green-200",
+            currentUserStatus === 'CONFIRMED' 
+              ? "bg-green-100 hover:bg-green-200" 
+              : "hover:bg-green-50"
+          )} */}
           <Button
             variant="outline"
             size="sm"
             className={cn(
               "flex-1 min-w-[70px] text-green-600 border-green-200",
-              currentUserStatus === 'CONFIRMED' 
+              (currentUserStatus === 'CONFIRMED' || currentUserStatus === 'WORKING' || currentUserStatus === 'SOLVED')
                 ? "bg-green-100 hover:bg-green-200" 
                 : "hover:bg-green-50"
             )}

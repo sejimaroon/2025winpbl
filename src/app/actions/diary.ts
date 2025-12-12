@@ -251,6 +251,27 @@ export async function updateUserDiaryStatus(
   // ポイントロジック（トグル対応）
   const pointsAmount = getPointsForAction(status as UserStatus);
   
+  // if (!isToggleOff) {
+  //   // ONにした場合：過去に同じアクションでポイントを得ていなければ付与
+  //   const { data: existingLog } = await supabase
+  //     .from('ACTION_LOG')
+  //     .select('log_id')
+  //     .eq('diary_id', diaryId)
+  //     .eq('staff_id', staffId)
+  //     .eq('action_type', status)
+  //     .single();
+  //
+  //   if (!existingLog) {
+  //     // 初回のみポイント付与
+  //     await supabase.from('ACTION_LOG').insert({
+  //       diary_id: diaryId,
+  //       staff_id: staffId,
+  //       action_type: status,
+  //       points_awarded: pointsAmount,
+  //     });
+  //     await addPoints(staffId, pointsAmount, `日報アクション: ${status}`, diaryId);
+  //   }
+  // } else {
   if (!isToggleOff) {
     // ONにした場合：過去に同じアクションでポイントを得ていなければ付与
     const { data: existingLog } = await supabase
@@ -270,6 +291,28 @@ export async function updateUserDiaryStatus(
         points_awarded: pointsAmount,
       });
       await addPoints(staffId, pointsAmount, `日報アクション: ${status}`, diaryId);
+    }
+
+    // WORKING/SOLVED の場合は CONFIRMED も自動的にON扱いにする（ポイントとログ）
+    if (status === 'WORKING' || status === 'SOLVED') {
+      const { data: confirmedLog } = await supabase
+        .from('ACTION_LOG')
+        .select('log_id')
+        .eq('diary_id', diaryId)
+        .eq('staff_id', staffId)
+        .eq('action_type', 'CONFIRMED')
+        .single();
+
+      if (!confirmedLog) {
+        const confirmPoints = getPointsForAction('CONFIRMED' as UserStatus);
+        await supabase.from('ACTION_LOG').insert({
+          diary_id: diaryId,
+          staff_id: staffId,
+          action_type: 'CONFIRMED',
+          points_awarded: confirmPoints,
+        });
+        await addPoints(staffId, confirmPoints, '日報アクション: CONFIRMED', diaryId);
+      }
     }
   } else {
     // OFFにした場合：ポイントを取り消し

@@ -43,13 +43,13 @@ function HeaderContent({ currentPoints = 0, userName, systemRoleId }: HeaderProp
 
   const toggleFilter = (filter: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (currentFilter === filter) {
       params.delete('filter');
     } else {
       params.set('filter', filter);
     }
-    
+
     router.push(`/?${params.toString()}`);
   };
 
@@ -133,7 +133,7 @@ function HeaderContent({ currentPoints = 0, userName, systemRoleId }: HeaderProp
         {/* 右側: ポイント・設定 */}
         <div className="flex items-center space-x-3">
           {/* ポイント表示（クリックでポイントページへ） */}
-          <Link 
+          <Link
             href="/points"
             className="flex items-center space-x-1 rounded-full bg-pink-50 px-3 py-1.5 text-pink-600 hover:bg-pink-100 transition-colors"
             title="ポイント詳細を見る"
@@ -195,9 +195,9 @@ function HeaderContent({ currentPoints = 0, userName, systemRoleId }: HeaderProp
                       <span>ユーザー管理画面</span>
                     </Link>
                   )}
-                  
+
                   <div className="border-t border-slate-100 mt-1 pt-1">
-                    <form 
+                    <form
                       action={logout}
                       onSubmit={() => setIsMenuOpen(false)}
                     >

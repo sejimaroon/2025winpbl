@@ -74,13 +74,13 @@ export async function getDiariesByDate(
     diaries = diaries.filter(diary => {
       // 未解決のみ
       if (diary.current_status === 'SOLVED') return false;
-      
+
       // メンション判定
       const content = diary.content || '';
       const isMentionedAll = content.includes('@All');
       const isMentionedJobType = currentStaffJobType && content.includes(`@${currentStaffJobType}`);
       const isMentionedName = currentStaffName && content.includes(`@${currentStaffName}`);
-      
+
       return isMentionedAll || isMentionedJobType || isMentionedName;
     });
   }
@@ -88,7 +88,7 @@ export async function getDiariesByDate(
   // 返信を日付順にソート
   diaries.forEach(diary => {
     if (diary.replies) {
-      diary.replies.sort((a, b) => 
+      diary.replies.sort((a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     }
@@ -100,7 +100,7 @@ export async function getDiariesByDate(
     // 解決済みは下に
     if (a.current_status === 'SOLVED' && b.current_status !== 'SOLVED') return 1;
     if (a.current_status !== 'SOLVED' && b.current_status === 'SOLVED') return -1;
-    
+
     // 両方とも未解決の場合、期限でソート
     if (a.current_status !== 'SOLVED' && b.current_status !== 'SOLVED') {
       // 期限がある場合は期限順
@@ -111,7 +111,7 @@ export async function getDiariesByDate(
       if (a.deadline && !b.deadline) return -1;
       if (!a.deadline && b.deadline) return 1;
     }
-    
+
     // 期限がない場合は作成日順（新しい順）
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
@@ -250,7 +250,7 @@ export async function updateUserDiaryStatus(
 
   // ポイントロジック（トグル対応）
   const pointsAmount = getPointsForAction(status as UserStatus);
-  
+
   // if (!isToggleOff) {
   //   // ONにした場合：過去に同じアクションでポイントを得ていなければ付与
   //   const { data: existingLog } = await supabase
@@ -330,7 +330,7 @@ export async function updateUserDiaryStatus(
         .from('ACTION_LOG')
         .delete()
         .eq('log_id', existingLog.log_id);
-      
+
       // ポイントを減算
       await addPoints(staffId, -existingLog.points_awarded, `日報アクション取消: ${status}`, diaryId);
     }
@@ -448,10 +448,10 @@ function getPointsForAction(status: UserStatus): number {
  */
 export async function getCurrentStaff() {
   const supabase = await createClient();
-  
+
   // Supabase Authからユーザーを取得
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) {
     return null;
   }
@@ -573,4 +573,3 @@ export async function deleteDiary(diaryId: number, staffId: number) {
   revalidatePath('/');
   return { success: true };
 }
-

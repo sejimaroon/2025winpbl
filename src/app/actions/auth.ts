@@ -1,0 +1,131 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+
+/**
+ * メール/パスワードでログイン
+ */
+export async function login(formData: FormData) {
+  const supabase = await createClient();
+
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath('/', 'layout');
+  redirect('/');
+}
+
+/**
+ * ログアウト
+ */
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath('/', 'layout');
+  redirect('/login');
+}
+
+/**
+ * 新規ユーザー登録（開発用・管理者用）
+ */
+export async function signUp(formData: FormData) {
+  const supabase = await createClient();
+
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath('/', 'layout');
+  return { success: true, message: '確認メールを送信しました' };
+}
+
+/**
+ * スタッフ新規登録申請
+ */
+export async function registerStaff(formData: FormData) {
+  const supabase = await createClient();
+
+  const name = formData.get('name') as string;
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const job_type_id = parseInt(formData.get('job_type_id') as string);
+
+  // バリデーション
+  if (!name || !email || !password || !job_type_id) {
+    return { error: 'すべての項目を入力してください' };
+  }
+
+  if (password.length < 6) {
+    return { error: 'パスワードは6文字以上で入力してください' };
+  }
+
+  // 既存のメールアドレスチェック
+  const { data: existingStaff } = await supabase
+    .from('STAFF')
+    .select('email')
+    .eq('email', email)
+    .single();
+
+  if (existingStaff) {
+    return { error: 'このメールアドレスは既に登録されています' };
+  }
+
+  // Supabase Authにユーザーを作成
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (authError) {
+    return { error: authError.message };
+  }
+
+  if (!authData.user) {
+    return { error: 'ユーザー作成に失敗しました' };
+  }
+
+  // login_idを生成（メールアドレスの@より前の部分）
+  const login_id = email.split('@')[0];
+
+  // STAFFテーブルに登録（承認待ち状態: is_active = false）
+  const { error: staffError } = await supabase
+    .from('STAFF')
+    .insert({
+      name,
+      login_id,
+      password_hash: 'dummy_hash', // 実際の認証はSupabase Authを使用
+      email,
+      job_type_id,
+      system_role_id: 2, // 一般ユーザー
+      is_active: false, // 承認待ち
+      current_points: 0,
+    });
+
+  if (staffError) {
+    // STAFF登録に失敗した場合、エラーメッセージを返す
+    // 注意: Authユーザーの削除には管理者権限が必要なため、ここでは削除しない
+    return { error: `スタッフ登録に失敗しました: ${staffError.message}` };
+  }
+
+  return { success: true };
+}
+

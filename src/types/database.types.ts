@@ -93,12 +93,18 @@ export interface Diary {
   current_status: DiaryStatus;
   created_at: string;
   updated_at: string;
+  updated_by?: number | null; // 編集者
+  deadline?: string | null; // 期限
+  solved_by?: number | null; // 解決者
+  solved_at?: string | null; // 解決日時
 }
 
 // リレーション込みの日報型
 export interface DiaryWithRelations extends Diary {
   category?: Category;
   staff?: Staff;
+  updated_by_staff?: Staff; // 編集者情報
+  solved_by_staff?: Staff; // 解決者情報
   tags?: Tag[];
   user_statuses?: UserDiaryStatusWithStaff[];
   replies?: DiaryWithRelations[];
@@ -177,6 +183,7 @@ export interface CreateDiaryInput {
   bounty_points?: number | null;
   tag_ids?: number[];
   parent_id?: number;
+  deadline?: string | null;
 }
 
 export interface UpdateStatusInput {

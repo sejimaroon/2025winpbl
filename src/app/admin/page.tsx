@@ -23,7 +23,10 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header currentPoints={currentStaff.current_points || 0} />
+      <Header 
+        currentPoints={currentStaff.current_points || 0}
+        systemRoleId={currentStaff.system_role_id}
+      />
       
       <main className="container mx-auto px-4 py-6">
         <Card>

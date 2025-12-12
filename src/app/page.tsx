@@ -1,8 +1,8 @@
 import { Header } from '@/components/layout/Header';
 import { DateNavigator } from '@/components/diary/DateNavigator';
-import { DiaryList } from '@/components/diary/DiaryList';
 import { FloatingActionButton } from '@/components/diary/FloatingActionButton';
-import { getDiariesByDate, getCurrentStaff } from '@/app/actions/diary';
+import { getDiariesByDate, getCurrentStaff, getCategories } from '@/app/actions/diary';
+import { getMonthlyPoints } from '@/app/actions/points';
 import { toISODateString, getToday } from '@/lib/utils';
 import { DiaryListClient } from '@/components/diary/DiaryListClient';
 
@@ -22,25 +22,44 @@ export default async function HomePage({ searchParams }: PageProps) {
   console.log('Fetching data for date:', dateString, 'filter:', filter);
   
   try {
-    const [diaries, currentStaff] = await Promise.all([
-      getDiariesByDate(dateString, filter),
-      getCurrentStaff(),
+    // 先にスタッフ情報を取得
+    const currentStaff = await getCurrentStaff();
+    
+    // TODOフィルターの場合はスタッフ情報を使用
+    const jobTypeName = currentStaff?.job_type?.job_name;
+    const staffName = currentStaff?.name;
+    
+    // 今月のポイントを取得
+    const monthlyPoints = currentStaff?.staff_id 
+      ? await getMonthlyPoints(currentStaff.staff_id) 
+      : 0;
+
+    const [diaries, categories] = await Promise.all([
+      getDiariesByDate(dateString, filter, currentStaff?.staff_id, jobTypeName, staffName),
+      getCategories(),
     ]);
     
     console.log('Data fetched successfully', { 
       diariesCount: diaries?.length, 
-      staffFound: !!currentStaff 
+      staffFound: !!currentStaff,
+      monthlyPoints
     });
 
     return (
       <div className="min-h-screen bg-slate-50">
-        <Header currentPoints={currentStaff?.current_points || 0} />
+        <Header 
+          currentPoints={monthlyPoints}
+          systemRoleId={currentStaff?.system_role_id}
+        />
         <DateNavigator currentDate={currentDate} />
 
         <main className="container mx-auto px-4 py-6 pb-24">
           <DiaryListClient
             diaries={diaries || []}
             currentUserId={currentStaff?.staff_id}
+            currentUserName={currentStaff?.name}
+            isAdmin={currentStaff?.system_role_id === 1}
+            categories={categories || []}
           />
         </main>
 

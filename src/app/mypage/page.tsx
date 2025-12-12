@@ -1,0 +1,554 @@
+'use client';
+
+import { useEffect, useState, useTransition } from 'react';
+import { Header } from '@/components/layout/Header';
+import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { User, Heart, Mail, Briefcase, Shield, Calendar, TrendingUp, TrendingDown, Edit2, Save, X, Lock, Trophy } from 'lucide-react';
+import { getCurrentStaff } from '@/app/actions/diary';
+import { getPointHistory, getMonthlyPoints } from '@/app/actions/points';
+import { updateProfile, updatePassword, updateStaffByAdmin, getJobTypesForProfile, getSystemRoles } from '@/app/actions/profile';
+import { formatDate, formatTime } from '@/lib/utils';
+
+interface PointLog {
+  log_id: number;
+  staff_id: number;
+  amount: number;
+  reason: string;
+  created_at: string;
+  diary_id?: number;
+}
+
+interface JobType {
+  job_type_id: number;
+  job_name: string;
+}
+
+interface SystemRole {
+  system_role_id: number;
+  role_name: string;
+}
+
+interface StaffProfile {
+  staff_id: number;
+  name: string;
+  email: string;
+  current_points: number;
+  system_role_id: number;
+  job_type_id: number;
+  job_type?: {
+    job_name: string;
+  };
+  system_role?: {
+    role_name: string;
+  };
+  created_at: string;
+}
+
+export default function MyPage() {
+  const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const [pointHistory, setPointHistory] = useState<PointLog[]>([]);
+  const [monthlyPoints, setMonthlyPoints] = useState<number>(0);
+  const [jobTypes, setJobTypes] = useState<JobType[]>([]);
+  const [systemRoles, setSystemRoles] = useState<SystemRole[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+
+  // 編集モード
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [isEditingAdmin, setIsEditingAdmin] = useState(false);
+
+  // 編集フォームの値
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [editJobTypeId, setEditJobTypeId] = useState<number>(0);
+  const [editSystemRoleId, setEditSystemRoleId] = useState<number>(0);
+
+  // エラー・メッセージ
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const isAdmin = profile?.system_role_id === 1;
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const staff = await getCurrentStaff();
+        if (staff) {
+          setProfile(staff as StaffProfile);
+          setEditName(staff.name);
+          setEditEmail(staff.email);
+          setEditJobTypeId(staff.job_type_id);
+          setEditSystemRoleId(staff.system_role_id);
+          
+          const [history, monthly] = await Promise.all([
+            getPointHistory(staff.staff_id),
+            getMonthlyPoints(staff.staff_id),
+          ]);
+          setPointHistory(history);
+          setMonthlyPoints(monthly);
+        }
+        
+        const [jt, sr] = await Promise.all([
+          getJobTypesForProfile(),
+          getSystemRoles(),
+        ]);
+        setJobTypes(jt);
+        setSystemRoles(sr);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const handleSaveProfile = () => {
+    if (!profile) return;
+    setError(null);
+    setSuccess(null);
+
+    startTransition(async () => {
+      const result = await updateProfile({
+        staff_id: profile.staff_id,
+        name: editName,
+        email: editEmail,
+      });
+
+      if (result.success) {
+        setSuccess('プロフィールを更新しました');
+        setIsEditingProfile(false);
+        // プロフィールを再読み込み
+        const staff = await getCurrentStaff();
+        if (staff) {
+          setProfile(staff as StaffProfile);
+        }
+      } else {
+        setError(result.error || '更新に失敗しました');
+      }
+    });
+  };
+
+  const handleSavePassword = () => {
+    if (newPassword !== confirmPassword) {
+      setError('パスワードが一致しません');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('パスワードは6文字以上で入力してください');
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+
+    startTransition(async () => {
+      const result = await updatePassword({ newPassword });
+
+      if (result.success) {
+        setSuccess('パスワードを更新しました');
+        setIsEditingPassword(false);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setError(result.error || '更新に失敗しました');
+      }
+    });
+  };
+
+  const handleSaveAdminSettings = () => {
+    if (!profile) return;
+    setError(null);
+    setSuccess(null);
+
+    startTransition(async () => {
+      const result = await updateStaffByAdmin(profile.staff_id, {
+        staff_id: profile.staff_id,
+        job_type_id: editJobTypeId,
+        system_role_id: editSystemRoleId,
+      });
+
+      if (result.success) {
+        setSuccess('設定を更新しました');
+        setIsEditingAdmin(false);
+        // プロフィールを再読み込み
+        const staff = await getCurrentStaff();
+        if (staff) {
+          setProfile(staff as StaffProfile);
+        }
+      } else {
+        setError(result.error || '更新に失敗しました');
+      }
+    });
+  };
+
+  const cancelEdit = () => {
+    if (profile) {
+      setEditName(profile.name);
+      setEditEmail(profile.email);
+      setEditJobTypeId(profile.job_type_id);
+      setEditSystemRoleId(profile.system_role_id);
+    }
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsEditingProfile(false);
+    setIsEditingPassword(false);
+    setIsEditingAdmin(false);
+    setError(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header currentPoints={0} />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <Header currentPoints={0} />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center py-16 text-slate-500">
+            プロフィール情報が見つかりません
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Header 
+        currentPoints={monthlyPoints} 
+        systemRoleId={profile.system_role_id}
+      />
+      
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        <h1 className="text-2xl font-bold text-slate-800">マイページ</h1>
+
+        {/* メッセージ表示 */}
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-600">
+            {success}
+          </div>
+        )}
+
+        {/* プロフィールカード */}
+        <Card>
+          <CardHeader className="border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-16 w-16 rounded-full bg-primary-500 flex items-center justify-center text-white text-2xl font-bold">
+                  {profile.name?.charAt(0) || '?'}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">{profile.name}</h2>
+                  <p className="text-sm text-slate-500">{profile.job_type?.job_name || '未設定'}</p>
+                </div>
+              </div>
+              {!isEditingProfile && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingProfile(true)}
+                >
+                  <Edit2 className="h-4 w-4 mr-1" />
+                  編集
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="py-4 space-y-4">
+            {isEditingProfile ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">名前</label>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="名前を入力"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">メールアドレス</label>
+                  <Input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="メールアドレスを入力"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={cancelEdit} disabled={isPending}>
+                    <X className="h-4 w-4 mr-1" />
+                    キャンセル
+                  </Button>
+                  <Button onClick={handleSaveProfile} disabled={isPending}>
+                    <Save className="h-4 w-4 mr-1" />
+                    {isPending ? '保存中...' : '保存'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-3 text-slate-600">
+                  <Mail className="h-5 w-5 text-slate-400" />
+                  <span>{profile.email}</span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-600">
+                  <Briefcase className="h-5 w-5 text-slate-400" />
+                  <span>{profile.job_type?.job_name || '未設定'}</span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-600">
+                  <Shield className="h-5 w-5 text-slate-400" />
+                  <span>{profile.system_role_id === 1 ? '管理者' : '一般ユーザー'}</span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-600">
+                  <Calendar className="h-5 w-5 text-slate-400" />
+                  <span>登録日: {formatDate(profile.created_at)}</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* パスワード変更カード */}
+        <Card>
+          <CardHeader className="border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                パスワード変更
+              </h3>
+              {!isEditingPassword && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingPassword(true)}
+                >
+                  <Edit2 className="h-4 w-4 mr-1" />
+                  変更
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="py-4">
+            {isEditingPassword ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">新しいパスワード</label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="新しいパスワードを入力（6文字以上）"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">パスワード確認</label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="パスワードを再入力"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={cancelEdit} disabled={isPending}>
+                    <X className="h-4 w-4 mr-1" />
+                    キャンセル
+                  </Button>
+                  <Button onClick={handleSavePassword} disabled={isPending}>
+                    <Save className="h-4 w-4 mr-1" />
+                    {isPending ? '保存中...' : '変更する'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                パスワードを変更するには「変更」ボタンをクリックしてください。
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 管理者設定カード（管理者のみ表示） */}
+        {isAdmin && (
+          <Card>
+            <CardHeader className="border-b border-slate-200 bg-amber-50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-amber-800 flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  管理者設定
+                </h3>
+                {!isEditingAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingAdmin(true)}
+                  >
+                    <Edit2 className="h-4 w-4 mr-1" />
+                    編集
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="py-4">
+              {isEditingAdmin ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">職種</label>
+                    <Select
+                      value={editJobTypeId}
+                      onChange={(e) => setEditJobTypeId(Number(e.target.value))}
+                    >
+                      {jobTypes.map(jt => (
+                        <option key={jt.job_type_id} value={jt.job_type_id}>
+                          {jt.job_name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">システムロール</label>
+                    <Select
+                      value={editSystemRoleId}
+                      onChange={(e) => setEditSystemRoleId(Number(e.target.value))}
+                    >
+                      {systemRoles.map(sr => (
+                        <option key={sr.system_role_id} value={sr.system_role_id}>
+                          {sr.role_name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={cancelEdit} disabled={isPending}>
+                      <X className="h-4 w-4 mr-1" />
+                      キャンセル
+                    </Button>
+                    <Button onClick={handleSaveAdminSettings} disabled={isPending}>
+                      <Save className="h-4 w-4 mr-1" />
+                      {isPending ? '保存中...' : '保存'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-600">
+                  <p>職種や管理者権限を変更できます。</p>
+                  <p className="text-amber-600 mt-2">※ この設定は管理者のみ変更可能です。</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ポイントカード */}
+        <Card>
+          <CardHeader className="border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-800">ポイント</h3>
+          </CardHeader>
+          <CardContent className="py-4 space-y-4">
+            {/* 今月と累計 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-pink-50 rounded-lg p-4 text-center">
+                <div className="flex items-center justify-center gap-1 text-sm text-pink-600 mb-1">
+                  <Calendar className="h-4 w-4" />
+                  <span>今月</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Heart className="h-5 w-5 fill-pink-500 text-pink-500" />
+                  <span className="text-2xl font-bold text-pink-600">{monthlyPoints}</span>
+                </div>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 text-center">
+                <div className="flex items-center justify-center gap-1 text-sm text-amber-600 mb-1">
+                  <Trophy className="h-4 w-4" />
+                  <span>累計</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Heart className="h-5 w-5 fill-amber-500 text-amber-500" />
+                  <span className="text-2xl font-bold text-amber-600">{profile.current_points}</span>
+                </div>
+              </div>
+            </div>
+
+            <h4 className="text-sm font-medium text-slate-700">ポイント獲得ルール</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <div className="bg-green-50 rounded-lg p-3">
+                <span className="font-medium text-green-700">確認した</span>
+                <span className="ml-2 text-green-600">+1pt</span>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3">
+                <span className="font-medium text-blue-700">作業中</span>
+                <span className="ml-2 text-blue-600">+5pt</span>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-3">
+                <span className="font-medium text-purple-700">解決済み</span>
+                <span className="ml-2 text-purple-600">+10pt</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ポイント履歴カード */}
+        <Card>
+          <CardHeader className="border-b border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-800">ポイント履歴（直近10件）</h3>
+          </CardHeader>
+          <CardContent className="py-4">
+            {pointHistory.length === 0 ? (
+              <div className="text-center py-8 text-slate-400">
+                ポイント履歴がありません
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pointHistory.slice(0, 10).map((log, index) => (
+                  <div 
+                    key={log.log_id || index} 
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      {log.amount > 0 ? (
+                        <TrendingUp className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <TrendingDown className="h-5 w-5 text-red-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{log.reason}</p>
+                        <p className="text-xs text-slate-400">
+                          {formatDate(log.created_at)} {formatTime(log.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`font-bold ${log.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {log.amount > 0 ? '+' : ''}{log.amount}pt
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}

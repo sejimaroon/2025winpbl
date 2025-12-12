@@ -72,6 +72,7 @@ CREATE TABLE "DIARY" (
     parent_id BIGINT REFERENCES "DIARY"(diary_id), -- 返信用自己参照
     category_id INT NOT NULL REFERENCES "CATEGORY"(category_id),
     staff_id INT NOT NULL REFERENCES "STAFF"(staff_id), -- 作成者
+    updated_by INT REFERENCES "STAFF"(staff_id), -- 最終編集者（編集履歴用）
     
     -- コンテンツ
     title TEXT NOT NULL,
@@ -158,3 +159,13 @@ INSERT INTO "USER_DIARY_STATUS" (diary_id, staff_id, status)
 VALUES 
 (1, 2, 'UNREAD'), -- 田中さんはまだ見てない
 (2, 1, 'CONFIRMED'); -- 鈴木さんは確認済み
+
+-- =============================================
+-- 7. 後から追加された変更（マイグレーション用）
+-- =============================================
+
+-- DIARYテーブルに編集者カラムを追加（編集履歴機能用）
+-- 実行日: 2025-12-12
+-- 注意: 既存のテーブルに追加する場合は、このSQLを実行してください
+-- ALTER TABLE "DIARY" ADD COLUMN IF NOT EXISTS updated_by INT REFERENCES "STAFF"(staff_id);
+-- ※新規でテーブルを作成する場合は、セクション4のCREATE TABLE文に既に含まれています

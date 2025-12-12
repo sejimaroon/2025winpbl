@@ -1,19 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Switch';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
-import { createDiary, getCategories, getCurrentStaff } from '@/app/actions/diary';
+import { createDiary, getCategories, getCurrentStaff, getJobTypes } from '@/app/actions/diary';
+import { getActiveStaff } from '@/app/actions/staff';
+import { MentionInput, type MentionInputHandle } from '@/components/diary/MentionInput';
+import { MentionButton } from '@/components/diary/MentionButton';
 import { toISODateString, getToday } from '@/lib/utils';
-import type { Category, StaffWithRelations } from '@/types/database.types';
+import type { Category, StaffWithRelations, JobType } from '@/types/database.types';
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -35,18 +37,28 @@ function SubmitButton() {
 export default function PostPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [jobTypes, setJobTypes] = useState<JobType[]>([]);
+  const [staffList, setStaffList] = useState<StaffWithRelations[]>([]);
   const [currentStaff, setCurrentStaff] = useState<StaffWithRelations | null>(null);
+  const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasDeadline, setHasDeadline] = useState(false);
+  const [deadline, setDeadline] = useState('');
+  const mentionInputRef = useRef<MentionInputHandle>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [cats, staff] = await Promise.all([
+        const [cats, jobs, staffs, staff] = await Promise.all([
           getCategories(),
+          getJobTypes(),
+          getActiveStaff(),
           getCurrentStaff(),
         ]);
         setCategories(cats);
+        setJobTypes(jobs);
+        setStaffList(staffs);
         setCurrentStaff(staff);
       } catch (e) {
         console.error('Error loading data:', e);
@@ -68,10 +80,11 @@ export default function PostPage() {
     const input = {
       category_id: parseInt(formData.get('category_id') as string),
       title: formData.get('title') as string,
-      content: formData.get('content') as string,
+      content: content, // MentionInputから取得
       target_date: formData.get('target_date') as string,
       is_urgent: formData.get('is_urgent') === 'on',
       staff_id: currentStaff.staff_id,
+      deadline: hasDeadline ? deadline : null,
     };
 
     const result = await createDiary(input);
@@ -149,6 +162,33 @@ export default function PostPage() {
                 />
               </div>
 
+              {/* 期限 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  期限
+                </label>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="has-deadline"
+                    checked={hasDeadline}
+                    onChange={(e) => setHasDeadline(e.target.checked)}
+                  />
+                  <label htmlFor="has-deadline" className="text-sm text-slate-600">
+                    {hasDeadline ? '期限あり' : '期限なし'}
+                  </label>
+                </div>
+                {hasDeadline && (
+                  <Input
+                    id="deadline"
+                    name="deadline"
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    min={toISODateString(getToday())}
+                  />
+                )}
+              </div>
+
               {/* タイトル */}
               <div className="space-y-2">
                 <label htmlFor="title" className="text-sm font-medium text-slate-700">
@@ -166,16 +206,29 @@ export default function PostPage() {
 
               {/* 内容 */}
               <div className="space-y-2">
-                <label htmlFor="content" className="text-sm font-medium text-slate-700">
-                  内容 <span className="text-red-500">*</span>
-                </label>
-                <Textarea
-                  id="content"
-                  name="content"
+                <div className="flex items-center gap-2">
+                  <label htmlFor="content" className="text-sm font-medium text-slate-700">
+                    内容 <span className="text-red-500">*</span>
+                  </label>
+                  <MentionButton
+                    onMentionClick={() => {
+                      mentionInputRef.current?.insertAt();
+                    }}
+                  />
+                </div>
+                <MentionInput
+                  ref={mentionInputRef}
+                  id="content-textarea"
+                  value={content}
+                  onChange={setContent}
+                  staffList={staffList}
+                  jobTypes={jobTypes}
                   placeholder="日報の内容を入力"
-                  required
                   rows={6}
+                  showAtButton={false}
+                  className="min-h-[120px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:border-transparent resize-none"
                 />
+                <input type="hidden" name="content" value={content} required />
               </div>
 
               {/* 至急フラグ */}

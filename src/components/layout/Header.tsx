@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { Heart, Settings, AlertTriangle, ClipboardList, LogOut, Users, User, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,7 +14,8 @@ interface HeaderProps {
   systemRoleId?: number;
 }
 
-export function Header({ currentPoints = 0, userName, systemRoleId }: HeaderProps) {
+// 内部コンポーネント（useSearchParamsを使用）
+function HeaderContent({ currentPoints = 0, userName, systemRoleId }: HeaderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentFilter = searchParams.get('filter');
@@ -183,5 +184,33 @@ export function Header({ currentPoints = 0, userName, systemRoleId }: HeaderProp
         </div>
       </div>
     </header>
+  );
+}
+
+// ローディング中のフォールバック
+function HeaderFallback() {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div className="container mx-auto flex h-14 items-center justify-between px-4">
+        <div className="flex items-center space-x-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500 text-white">
+            <ClipboardList className="h-5 w-5" />
+          </div>
+          <span className="font-bold text-lg text-slate-800 hidden sm:inline-block">
+            クリニック日報
+          </span>
+        </div>
+        <div className="h-6 w-20 bg-slate-100 rounded animate-pulse"></div>
+      </div>
+    </header>
+  );
+}
+
+// エクスポートするコンポーネント（Suspenseでラップ）
+export function Header(props: HeaderProps) {
+  return (
+    <Suspense fallback={<HeaderFallback />}>
+      <HeaderContent {...props} />
+    </Suspense>
   );
 }

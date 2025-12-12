@@ -27,19 +27,23 @@ erDiagram
     %% 日報データ
     DIARY {
         bigint diary_id PK
-        int parent_id FK
+        int parent_id FK "返信用自己参照"
         int category_id FK
         string title
         string content
         date target_date
+        date deadline "期限日（任意）"
         
         boolean is_urgent
         int bounty_points "特別報酬ポイント"
         
         boolean is_hidden
         boolean is_deleted
-        int staff_id FK
-        string current_status
+        int staff_id FK "作成者"
+        int updated_by FK "最終編集者"
+        int solved_by FK "解決者"
+        datetime solved_at "解決日時"
+        string current_status "UNREAD/CONFIRMED/WORKING/SOLVED"
         datetime created_at
         datetime updated_at
     }
@@ -49,7 +53,7 @@ erDiagram
         bigint id PK
         int staff_id FK
         bigint diary_id FK
-        string status
+        string status "UNREAD/CONFIRMED/WORKING/SOLVED"
         datetime updated_at
     }
 
@@ -58,7 +62,7 @@ erDiagram
         bigint log_id PK
         int staff_id FK
         bigint diary_id FK
-        string action_type
+        string action_type "CONFIRM/WORKING/SOLVED/REPLY"
         int points_awarded
         datetime created_at
     }
@@ -67,7 +71,7 @@ erDiagram
     POINT_LOG {
         bigint point_log_id PK
         int staff_id FK
-        int amount
+        int amount "増減値（+10, -5など）"
         string reason
         datetime created_at
     }
@@ -96,6 +100,8 @@ erDiagram
     JOB_TYPE ||--o{ STAFF : belongs_to
     SYSTEM_ROLE ||--o{ STAFF : has
     STAFF ||--o{ DIARY : creates
+    STAFF ||--o{ DIARY : edits
+    STAFF ||--o{ DIARY : solves
     CATEGORY ||--o{ DIARY : category
     DIARY |o--o{ DIARY : reply
     DIARY ||--o{ DIARY_TAG : has

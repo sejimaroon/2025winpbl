@@ -54,6 +54,7 @@ export function DiaryDetailModal({
     if (loadedJobTypes.length === 0) {
       getJobTypes().then(setLoadedJobTypes).catch(console.error);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   // 編集済みかどうか
